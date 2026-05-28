@@ -8,7 +8,7 @@ bot = telebot.TeleBot(TOKEN)# Создаем экземпляр бота с по
 
 try:
 
-      tasks = read_tasks()  # Пытаемся прочитать задачи из файла
+      users = read_tasks()  # Пытаемся прочитать задачи из файла
 
 except FileNotFoundError:
       users = {} # Если файл не найден, создаем пустой словарь для хранения
@@ -94,6 +94,41 @@ def clear_tasks(message):
           users[user_id]['tasks'] = []
           save_tasks(users)
           bot.send_message(message.chat.id, "Все задачи удалены!")
+
+
+
+@bot.message_handler(commands=['done'])
+def done_tasks(message):
+  task = message.text.replace("/done ", "")
+  users = read_tasks()
+  user_id = str(message.chat.id)
+  if user_id not in users or not users[user_id]['active']:
+    bot.send_message(message.chat.id, 'Чтобы начать нажмите start')
+  else:
+    if users[user_id]['tasks'] == []:
+      bot.send_message(message.chat.id, "Список задач пуст.")
+    else:
+      try:
+        if task.isdigit():
+          try:
+            if users[user_id]['tasks'][int(task) - 1]['done']:
+              return bot.send_message(message.chat.id, "Задача уже отмечена как выполненная.")
+            else:
+              users[user_id]['tasks'][int(task) - 1]['done'] = True
+              save_tasks(users)
+              return bot.send_message(message.chat.id, "Задача отмечена как выполненная!")
+          except IndexError:
+              return bot.send_message(message.chat.id, "Неверный номер задачи.")
+        else:
+            for item in users[user_id]['tasks']:
+              if item['text'] == task:
+                item['done'] = True
+                save_tasks(users)
+                return bot.send_message(message.chat.id, "Задача отмечена как выполненная!")
+            return bot.send_message(message.chat.id, "Задача не найдена в списке.")
+      except ValueError:
+            return bot.send_message(message.chat.id, "Задача не найдена в списке.")
+
 
 
 bot.polling()
