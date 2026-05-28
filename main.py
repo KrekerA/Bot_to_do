@@ -131,4 +131,38 @@ def done_tasks(message):
 
 
 
+@bot.message_handler(commands=['undone'])
+def undone_tasks(message):
+  task = message.text.replace("/undone ", "")
+  users = read_tasks()
+  user_id = str(message.chat.id)
+  if not users[user_id]['active']:
+    bot.send_message(message.chat.id, 'Чтобы начать нажмите start')
+  else:
+    if users[user_id]['tasks'] == []:
+      bot.send_message(message.chat.id, "Список задач пуст.")
+    else:
+      try:
+        if task.isdigit():
+            try:
+              if not users[user_id]['tasks'][int(task) - 1]['done']:
+                return bot.send_message(message.chat.id, "Задача уже отмечена как не выполненная.")
+              else:
+                users[user_id]['tasks'][int(task) - 1]['done'] = False
+                save_tasks(users)  # Сохраняем задачи в файл
+                bot.send_message(message.chat.id, "Задача отмечена как не выполненная!")
+            except IndexError:
+              return bot.send_message(message.chat.id, "Неверный номер задачи.")
+        else:
+            for item in users[user_id]['tasks']:
+              if item['text'] == task:
+                item['done'] = False
+                save_tasks(users)  # Сохраняем задачи в файл
+                return bot.send_message(message.chat.id, "Задача отмечена как не выполненная!")
+            return bot.send_message(message.chat.id, "Задача не найдена в списке.")
+      except ValueError:
+            return bot.send_message(message.chat.id, "Задача не найдена в списке.")
+
+
+
 bot.polling()
