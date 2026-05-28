@@ -48,5 +48,42 @@ def list_tasks(message):
 
 
 
+@bot.message_handler(commands=['delete'])
+def delete_tasks(message):
+  task = message.text.replace("/delete ", "")
+  users = read_tasks()  # Пытаемся прочитать задачи из файла
+  user_id = str(message.chat.id)
+  if not users[user_id]['active']:
+    bot.send_message(message.chat.id, 'Чтобы начать нажмите start')
+  else:
+    if users[user_id]['tasks'] == []:
+      bot.send_message(message.chat.id, "Список задач пуст.")
+    else:
+      try:
+        if task.isdigit():
+          try:
+            users[user_id]['tasks'].pop(int(task) - 1)
+            save_tasks(users)  # Сохраняем задачи в файл
+            return bot.send_message(message.chat.id, "Задача удалена!")
+          except IndexError:
+            return bot.send_message(message.chat.id, "Неверный номер задачи.")
+        else:
+          for item in users[user_id]['tasks']:
+            if item['text'] == task:
+              users[user_id]['tasks'].remove(item)
+              save_tasks(users)  # Сохраняем задачи в файл
+              return bot.send_message(message.chat.id, "Задача удалена!")
+          return bot.send_message(message.chat.id, "Задача не найдена в списке.")
+            
+      except ValueError:
+          return bot.send_message(message.chat.id, "Задача не найдена в списке.")
+      
+
+
+
+bot.polling()  # Запускаем бота          
+
+
+
 
 bot.polling()
