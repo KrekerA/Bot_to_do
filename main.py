@@ -30,4 +30,23 @@ def add_task(message):
     bot.send_message(message.chat.id, "Задача добавлена!")
 
 
+@bot.message_handler(commands=['tasks'])
+def list_tasks(message):
+  users = read_tasks()  # Пытаемся прочитать задачи из файла
+  user_id = str(message.chat.id)
+  if user_id not in users or not users[user_id]['active']:
+    bot.send_message(message.chat.id, 'Чтобы начать нажмите start')
+  else:
+    if users[user_id]['tasks'] == []:
+      bot.send_message(message.chat.id, "Список задач пуст.")
+    else:
+       user_tasks = users[user_id]['tasks']
+       lines = []
+       for i, task in enumerate(user_tasks):
+         lines.append(f"{i + 1}. {task['text']}")
+       bot.send_message(message.chat.id, "\n".join(lines))
+
+
+
+
 bot.polling()
