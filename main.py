@@ -1,6 +1,6 @@
 import telebot
 from bot import TOKEN
-from json import save_tasks, read_tasks
+from func import save_tasks, read_tasks
 
 
 bot = telebot.TeleBot(TOKEN)# Создаем экземпляр бота с помощью токена
@@ -17,22 +17,18 @@ except FileNotFoundError:
 
 @bot.message_handler(commands=['add'])
 def add_task(message):
-  read_tasks()
-  user_id = str(message.chat.id)
-  if not users[user_id]['active'] or user_id not in users:
-    bot.send_message(message.chat.id, 'Чтобы начать нажмите start')
-  else:
-    task = message.text.replace("/add ", "")# Получаем текст задачи, удаляя команду /add из сообщения
-    tasks = {"text": task, "done": False}  # Создаем словарь с задачами для данного пользователя
-    users[user_id]['tasks'].append(tasks)
-    save_tasks(users)  # Сохраняем задачи в файл
+  user_id = check_users(message)
+  task = message.text.replace("/add ", "")# Получаем текст задачи, удаляя команду /add из сообщения
+  tasks = {"text": task, "done": False}  # Создаем словарь с задачами для данного пользователя
+  users[user_id]['tasks'].append(tasks)
+  save_tasks(users)  # Сохраняем задачи в файл
 
-    bot.send_message(message.chat.id, "Задача добавлена!")
+  bot.send_message(message.chat.id, "Задача добавлена!")
 
 
 @bot.message_handler(commands=['tasks'])
 def list_tasks(message):
-  users = read_tasks()  # Пытаемся прочитать задачи из файла
+  read_tasks()
   user_id = str(message.chat.id)
   if user_id not in users or not users[user_id]['active']:
     bot.send_message(message.chat.id, 'Чтобы начать нажмите start')
@@ -52,7 +48,7 @@ def list_tasks(message):
 @bot.message_handler(commands=['delete'])
 def delete_tasks(message):
   task = message.text.replace("/delete ", "")
-  users = read_tasks()  # Пытаемся прочитать задачи из файла
+  read_tasks()
   user_id = str(message.chat.id)
   if not users[user_id]['active']:
     bot.send_message(message.chat.id, 'Чтобы начать нажмите start')
@@ -83,7 +79,7 @@ def delete_tasks(message):
 
 @bot.message_handler(commands=['clear'])
 def clear_tasks(message):
-    users = read_tasks()
+    read_tasks()
     user_id = str(message.chat.id)
     if not users[user_id]['active']:
       bot.send_message(message.chat.id, 'Чтобы начать нажмите start')
@@ -100,7 +96,7 @@ def clear_tasks(message):
 @bot.message_handler(commands=['done'])
 def done_tasks(message):
   task = message.text.replace("/done ", "")
-  users = read_tasks()
+  read_tasks()
   user_id = str(message.chat.id)
   if user_id not in users or not users[user_id]['active']:
     bot.send_message(message.chat.id, 'Чтобы начать нажмите start')
@@ -134,7 +130,7 @@ def done_tasks(message):
 @bot.message_handler(commands=['undone'])
 def undone_tasks(message):
   task = message.text.replace("/undone ", "")
-  users = read_tasks()
+  read_tasks()
   user_id = str(message.chat.id)
   if not users[user_id]['active']:
     bot.send_message(message.chat.id, 'Чтобы начать нажмите start')
@@ -163,6 +159,13 @@ def undone_tasks(message):
       except ValueError:
             return bot.send_message(message.chat.id, "Задача не найдена в списке.")
 
+
+
+def check_users(message):
+  read_tasks()
+  user_id = str(message.chat.id)
+  if not users[user_id]['active']:
+    return bot.send_message(message.chat.id, 'Чтобы начать нажмите start')
 
 
 bot.polling()
