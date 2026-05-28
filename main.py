@@ -48,6 +48,7 @@ def list_tasks(message):
 
 
 
+
 @bot.message_handler(commands=['delete'])
 def delete_tasks(message):
   task = message.text.replace("/delete ", "")
@@ -76,14 +77,23 @@ def delete_tasks(message):
           return bot.send_message(message.chat.id, "Задача не найдена в списке.")
             
       except ValueError:
-          return bot.send_message(message.chat.id, "Задача не найдена в списке.")
-      
+          return bot.send_message(message.chat.id, "Задача не найдена в списке.")      
 
 
 
-bot.polling()  # Запускаем бота          
-
-
+@bot.message_handler(commands=['clear'])
+def clear_tasks(message):
+    users = read_tasks()
+    user_id = str(message.chat.id)
+    if not users[user_id]['active']:
+      bot.send_message(message.chat.id, 'Чтобы начать нажмите start')
+    else:
+      if users[user_id]['tasks'] == []:
+          bot.send_message(message.chat.id, "Список пуст")
+      else:    
+          users[user_id]['tasks'] = []
+          save_tasks(users)
+          bot.send_message(message.chat.id, "Все задачи удалены!")
 
 
 bot.polling()
