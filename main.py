@@ -17,17 +17,13 @@ except FileNotFoundError:
 
 @bot.message_handler(commands=['add'])
 def add_task(message):
-  read_tasks()
-  user_id = str(message.chat.id)
-  if not users[user_id]['active'] or user_id not in users:
-    bot.send_message(message.chat.id, 'Чтобы начать нажмите start')
-  else:
-    task = message.text.replace("/add ", "")# Получаем текст задачи, удаляя команду /add из сообщения
-    tasks = {"text": task, "done": False}  # Создаем словарь с задачами для данного пользователя
-    users[user_id]['tasks'].append(tasks)
-    save_tasks(users)  # Сохраняем задачи в файл
+  user_id = check_users(message)
+  task = message.text.replace("/add ", "")# Получаем текст задачи, удаляя команду /add из сообщения
+  tasks = {"text": task, "done": False}  # Создаем словарь с задачами для данного пользователя
+  users[user_id]['tasks'].append(tasks)
+  save_tasks(users)  # Сохраняем задачи в файл
 
-    bot.send_message(message.chat.id, "Задача добавлена!")
+  bot.send_message(message.chat.id, "Задача добавлена!")
 
 
 @bot.message_handler(commands=['tasks'])
