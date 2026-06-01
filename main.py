@@ -1,6 +1,12 @@
 import telebot
-from bot import TOKEN
 from func import save_tasks, read_tasks
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+TOKEN = os.getenv("TOKEN")
+
 
 
 bot = telebot.TeleBot(TOKEN)# Создаем экземпляр бота с помощью токена
