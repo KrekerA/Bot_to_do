@@ -20,9 +20,23 @@ except FileNotFoundError:
       users = {} # Если файл не найден, создаем пустой словарь для хранения
 
 
+@bot.message_handler(commands=['start'])# Декоратор для обработки команды /start
+def start(message):
+    users = read_tasks()
+    user_id = str(message.chat.id)
+    if user_id not in users:
+      users[user_id] = {'active': True, 'tasks': []} # Инициализируем словарь для хранения задач пользователя
+    else:
+      users[user_id]['active'] = True # Если пользователь уже существует, просто активируем его
+    save_tasks(users)
+    bot.send_message(message.chat.id, 'Привет, я твой бот😊')
+
+
+
 
 @bot.message_handler(commands=['add'])
 def add_task(message):
+  users = read_tasks()
   user_id = check_users(message)
   task = message.text.replace("/add ", "")# Получаем текст задачи, удаляя команду /add из сообщения
   tasks = {"text": task, "done": False}  # Создаем словарь с задачами для данного пользователя
@@ -34,7 +48,7 @@ def add_task(message):
 
 @bot.message_handler(commands=['tasks'])
 def list_tasks(message):
-  read_tasks()
+  users = read_tasks()
   user_id = str(message.chat.id)
   if user_id not in users or not users[user_id]['active']:
     bot.send_message(message.chat.id, 'Чтобы начать нажмите start')
@@ -54,7 +68,7 @@ def list_tasks(message):
 @bot.message_handler(commands=['delete'])
 def delete_tasks(message):
   task = message.text.replace("/delete ", "")
-  read_tasks()
+  users = read_tasks()
   user_id = str(message.chat.id)
   if not users[user_id]['active']:
     bot.send_message(message.chat.id, 'Чтобы начать нажмите start')
@@ -85,7 +99,7 @@ def delete_tasks(message):
 
 @bot.message_handler(commands=['clear'])
 def clear_tasks(message):
-    read_tasks()
+    users =read_tasks()
     user_id = str(message.chat.id)
     if not users[user_id]['active']:
       bot.send_message(message.chat.id, 'Чтобы начать нажмите start')
@@ -102,7 +116,7 @@ def clear_tasks(message):
 @bot.message_handler(commands=['done'])
 def done_tasks(message):
   task = message.text.replace("/done ", "")
-  read_tasks()
+  users = read_tasks()
   user_id = str(message.chat.id)
   if user_id not in users or not users[user_id]['active']:
     bot.send_message(message.chat.id, 'Чтобы начать нажмите start')
@@ -136,7 +150,7 @@ def done_tasks(message):
 @bot.message_handler(commands=['undone'])
 def undone_tasks(message):
   task = message.text.replace("/undone ", "")
-  read_tasks()
+  users = read_tasks()
   user_id = str(message.chat.id)
   if not users[user_id]['active']:
     bot.send_message(message.chat.id, 'Чтобы начать нажмите start')
@@ -168,7 +182,7 @@ def undone_tasks(message):
 
 
 def check_users(message):
-  read_tasks()
+  users = read_tasks()
   user_id = str(message.chat.id)
   if not users[user_id]['active']:
     return bot.send_message(message.chat.id, 'Чтобы начать нажмите start')
