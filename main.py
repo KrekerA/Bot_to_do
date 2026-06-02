@@ -37,13 +37,19 @@ def start(message):
 @bot.message_handler(commands=['add'])
 def add_task(message):
   users = read_tasks()
-  user_id = check_users(message)
-  task = message.text.replace("/add ", "")# Получаем текст задачи, удаляя команду /add из сообщения
-  tasks = {"text": task, "done": False}  # Создаем словарь с задачами для данного пользователя
-  users[user_id]['tasks'].append(tasks)
-  save_tasks(users)  # Сохраняем задачи в файл
+  user_id = str(message.chat.id)
+  if user_id not in users or not users[user_id]['active']:
+    return bot.send_message(message.chat.id, 'Чтобы начать нажмите start')
+  else:
+    task = message.text.replace("/add ", "").strip() # Получаем текст задачи, удаляя команду /add из сообщения
+    if not task or task == "/add":
+      return bot.send_message(message.chat.id, "Пожалуйста, введите текст задачи после команды /add.")
+    else:
+      tasks = {"text": task, "done": False}  # Создаем словарь с задачами для данного пользователя
+      users[user_id]['tasks'].append(tasks)
+      save_tasks(users)  # Сохраняем задачи в файл
 
-  bot.send_message(message.chat.id, "Задача добавлена!")
+      bot.send_message(message.chat.id, "Задача добавлена!")
 
 
 @bot.message_handler(commands=['tasks'])
@@ -51,7 +57,7 @@ def list_tasks(message):
   users = read_tasks()
   user_id = str(message.chat.id)
   if user_id not in users or not users[user_id]['active']:
-    bot.send_message(message.chat.id, 'Чтобы начать нажмите start')
+    return bot.send_message(message.chat.id, 'Чтобы начать нажмите start')
   else:
     if users[user_id]['tasks'] == []:
       bot.send_message(message.chat.id, "Список задач пуст.")
@@ -59,7 +65,7 @@ def list_tasks(message):
        user_tasks = users[user_id]['tasks']
        lines = []
        for i, task in enumerate(user_tasks):
-         lines.append(f"{i + 1}. {task['text']}")
+         lines.append(f"{i + 1}. {task['text']} {'✅' if task['done'] else '❌'}")
        bot.send_message(message.chat.id, "\n".join(lines))
 
 
@@ -70,8 +76,8 @@ def delete_tasks(message):
   task = message.text.replace("/delete ", "")
   users = read_tasks()
   user_id = str(message.chat.id)
-  if not users[user_id]['active']:
-    bot.send_message(message.chat.id, 'Чтобы начать нажмите start')
+  if user_id not in users or not users[user_id]['active']:
+    return bot.send_message(message.chat.id, 'Чтобы начать нажмите start')
   else:
     if users[user_id]['tasks'] == []:
       bot.send_message(message.chat.id, "Список задач пуст.")
@@ -101,7 +107,7 @@ def delete_tasks(message):
 def clear_tasks(message):
     users =read_tasks()
     user_id = str(message.chat.id)
-    if not users[user_id]['active']:
+    if user_id not in users or not users[user_id]['active']:
       bot.send_message(message.chat.id, 'Чтобы начать нажмите start')
     else:
       if users[user_id]['tasks'] == []:
@@ -152,7 +158,7 @@ def undone_tasks(message):
   task = message.text.replace("/undone ", "")
   users = read_tasks()
   user_id = str(message.chat.id)
-  if not users[user_id]['active']:
+  if user_id not in users or not users[user_id]['active']:
     bot.send_message(message.chat.id, 'Чтобы начать нажмите start')
   else:
     if users[user_id]['tasks'] == []:
@@ -178,14 +184,6 @@ def undone_tasks(message):
             return bot.send_message(message.chat.id, "Задача не найдена в списке.")
       except ValueError:
             return bot.send_message(message.chat.id, "Задача не найдена в списке.")
-
-
-
-def check_users(message):
-  users = read_tasks()
-  user_id = str(message.chat.id)
-  if not users[user_id]['active']:
-    return bot.send_message(message.chat.id, 'Чтобы начать нажмите start')
 
 
 bot.polling()
