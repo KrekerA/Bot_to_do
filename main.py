@@ -186,4 +186,17 @@ def undone_tasks(message):
             return bot.send_message(message.chat.id, "Задача не найдена в списке.")
 
 
+
+
+@bot.message_handler(commands=['stop'])
+def stop(message):
+    users = read_tasks()
+    user_id = str(message.chat.id)
+    if not users[user_id]['active']:
+       bot.send_message(message.chat.id, 'Бот уже выключен')
+    else:
+       bot.send_message(message.chat.id, 'Бот выключен')
+       users[user_id]['active'] = False
+       save_tasks(users)
+
 bot.polling()
