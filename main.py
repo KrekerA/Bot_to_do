@@ -61,7 +61,7 @@ def list_tasks(message):
   if not user_id:
     return bot.send_message(message.chat.id, 'Чтобы начать нажмите /start')
   if not users[user_id]['tasks']:
-    return bot.send_message(message.chat.id, "Список задач пуст.")
+    return bot.send_message(message.chat.id, "Список задач пуст. Чтобы добавить задачу используй /add.")
   user_tasks = users[user_id]['tasks']
   lines = []
   for i, task in enumerate(user_tasks):
@@ -84,7 +84,7 @@ def delete_tasks(message):
         else:
           task = task[1]
         if not users[user_id]['tasks']:
-          return bot.send_message(message.chat.id, "Список задач пуст.")
+          return bot.send_message(message.chat.id, "Список задач пуст. Чтобы добавить задачу используй /add.")
         else:
           try:
             if task.isdigit():
@@ -115,7 +115,7 @@ def clear_tasks(message):
         return bot.send_message(message.chat.id, 'Чтобы начать нажмите /start')
     else:
       if not users[user_id]['tasks']:
-          return bot.send_message(message.chat.id, "Список пуст")
+          return bot.send_message(message.chat.id, "Список пуст. Чтобы добавить задачу используй /add.")
       else:    
           users[user_id]['tasks'] = []
           save_tasks(users)
@@ -136,7 +136,7 @@ def done_tasks(message):
     else:
       task = task[1]
     if not users[user_id]['tasks']:
-      bot.send_message(message.chat.id, "Список задач пуст.")
+      bot.send_message(message.chat.id, "Список задач пуст. Чтобы добавить задачу используй /add.")
     else:
       try:
         if task.isdigit():
@@ -174,7 +174,7 @@ def undone_tasks(message):
     else:
       task = task[1]
     if not users[user_id]['tasks']:
-      bot.send_message(message.chat.id, "Список задач пуст.")
+      bot.send_message(message.chat.id, "Список задач пуст. Чтобы добавить задачу используй /add.")
     else:
       try:
         if task.isdigit():
@@ -221,6 +221,20 @@ def check_users(message, users=None):
   if user_id not in users or not users[user_id]['active']:
     return None
   return user_id
+
+@bot.message_handler(commands=['help'])
+def help(message):
+   bot.send_message(message.chat.id, 'Команды бота \n' \
+   '- /start — зарегистрировать пользователя и активировать бота \n' \
+   '- /add <текст задачи> — добавить новую задачу \n' \
+   '- /tasks — показать текущий список задач \n' \
+   '- /delete <номер или текст задачи> — удалить задачу \n' \
+   '- /done <номер или текст задачи> — отметить задачу выполненной \n' \
+   '- /undone <номер или текст задачи> — отметить задачу невыполненной \n' \
+   '- /clear — удалить все задачи \n' \
+   '- /stop — деактивировать бота для текущего пользователя \n' \
+   '- /help - доступные команды')
+
 
 
 bot.polling()
