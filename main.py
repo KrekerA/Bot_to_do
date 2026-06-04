@@ -60,15 +60,13 @@ def list_tasks(message):
   user_id = check_users(message, users)
   if not user_id:
     return bot.send_message(message.chat.id, 'Чтобы начать нажмите /start')
-  else:
-    if users[user_id]['tasks'] == []:
-      return bot.send_message(message.chat.id, "Список задач пуст.")
-    else:
-       user_tasks = users[user_id]['tasks']
-       lines = []
-       for i, task in enumerate(user_tasks):
-         lines.append(f"{i + 1}. {task['text']} {'✅' if task['done'] else '❌'}")
-       return bot.send_message(message.chat.id, "\n".join(lines))
+  if not users[user_id]['tasks']:
+    return bot.send_message(message.chat.id, "Список задач пуст.")
+  user_tasks = users[user_id]['tasks']
+  lines = []
+  for i, task in enumerate(user_tasks):
+    lines.append(f"{i + 1}. {task['text']} {'✅' if task['done'] else '❌'}")
+  return bot.send_message(message.chat.id, "\n".join(lines))
 
 
 
@@ -85,7 +83,7 @@ def delete_tasks(message):
           return bot.send_message(message.chat.id, "Пожалуйста, введите текст задачи после команды /delete.")
         else:
           task = task[1]
-        if users[user_id]['tasks'] == []:
+        if not users[user_id]['tasks']:
           return bot.send_message(message.chat.id, "Список задач пуст.")
         else:
           try:
@@ -116,7 +114,7 @@ def clear_tasks(message):
     if not user_id: 
         return bot.send_message(message.chat.id, 'Чтобы начать нажмите /start')
     else:
-      if users[user_id]['tasks'] == []:
+      if not users[user_id]['tasks']:
           return bot.send_message(message.chat.id, "Список пуст")
       else:    
           users[user_id]['tasks'] = []
@@ -137,7 +135,7 @@ def done_tasks(message):
       return bot.send_message(message.chat.id, "Пожалуйста, введите текст задачи после команды /done.")
     else:
       task = task[1]
-    if users[user_id]['tasks'] == []:
+    if not users[user_id]['tasks']:
       bot.send_message(message.chat.id, "Список задач пуст.")
     else:
       try:
@@ -175,7 +173,7 @@ def undone_tasks(message):
       return bot.send_message(message.chat.id, "Пожалуйста, введите текст задачи после команды /undone.")
     else:
       task = task[1]
-    if users[user_id]['tasks'] == []:
+    if not users[user_id]['tasks']:
       bot.send_message(message.chat.id, "Список задач пуст.")
     else:
       try:
