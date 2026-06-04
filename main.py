@@ -37,8 +37,8 @@ def start(message):
 @bot.message_handler(commands=['add'])
 def add_task(message):
   users = read_tasks()
-  user_id = str(message.chat.id)
-  if user_id not in users or not users[user_id]['active']:
+  user_id = check_users(message, users)
+  if not user_id:
     return bot.send_message(message.chat.id, 'Чтобы начать нажмите /start')
   else:
     task = message.text.split(maxsplit=1)
@@ -57,8 +57,8 @@ def add_task(message):
 @bot.message_handler(commands=['tasks'])
 def list_tasks(message):
   users = read_tasks()
-  user_id = str(message.chat.id)
-  if user_id not in users or not users[user_id]['active']:
+  user_id = check_users(message, users)
+  if not user_id:
     return bot.send_message(message.chat.id, 'Чтобы начать нажмите /start')
   else:
     if users[user_id]['tasks'] == []:
@@ -76,8 +76,8 @@ def list_tasks(message):
 @bot.message_handler(commands=['delete'])
 def delete_tasks(message):
       users = read_tasks()
-      user_id = str(message.chat.id)
-      if user_id not in users or not users[user_id]['active']:
+      user_id = check_users(message, users)
+      if not user_id: 
         return bot.send_message(message.chat.id, 'Чтобы начать нажмите /start')
       else:
         task = message.text.split(maxsplit=1)
@@ -112,9 +112,9 @@ def delete_tasks(message):
 @bot.message_handler(commands=['clear'])
 def clear_tasks(message):
     users =read_tasks()
-    user_id = str(message.chat.id)
-    if user_id not in users or not users[user_id]['active']:
-      return bot.send_message(message.chat.id, 'Чтобы начать нажмите /start')
+    user_id = check_users(message, users)
+    if not user_id: 
+        return bot.send_message(message.chat.id, 'Чтобы начать нажмите /start')
     else:
       if users[user_id]['tasks'] == []:
           return bot.send_message(message.chat.id, "Список пуст")
@@ -128,9 +128,9 @@ def clear_tasks(message):
 @bot.message_handler(commands=['done'])
 def done_tasks(message):
   users = read_tasks()
-  user_id = str(message.chat.id)
-  if user_id not in users or not users[user_id]['active']:
-    return bot.send_message(message.chat.id, 'Чтобы начать нажмите /start')
+  user_id = check_users(message, users)
+  if not user_id: 
+        return bot.send_message(message.chat.id, 'Чтобы начать нажмите /start')
   else:
     task = message.text.split(maxsplit=1)
     if len(task) < 2:
@@ -166,9 +166,9 @@ def done_tasks(message):
 @bot.message_handler(commands=['undone'])
 def undone_tasks(message):
   users = read_tasks()
-  user_id = str(message.chat.id)
-  if user_id not in users or not users[user_id]['active']:
-    return bot.send_message(message.chat.id, 'Чтобы начать нажмите /start')
+  user_id = check_users(message, users)
+  if not user_id: 
+        return bot.send_message(message.chat.id, 'Чтобы начать нажмите /start')
   else:
     task = message.text.split(maxsplit=1)
     if len(task) < 2:
@@ -214,5 +214,16 @@ def stop(message):
        users[user_id]['active'] = False
        save_tasks(users)
        return bot.send_message(message.chat.id, 'Бот выключен')
+
+
+def check_users(message, users=None):
+   if not users:
+     users = read_tasks()
+   user_id = str(message.chat.id)
+   if user_id not in users or not users[user_id]['active']:
+    return None
+   else:
+    return user_id
+
 
 bot.polling()
