@@ -215,13 +215,12 @@ def stop(message):
 
 
 def check_users(message, users=None):
-   if not users:
-     users = read_tasks()
-   user_id = str(message.chat.id)
-   if user_id not in users or not users[user_id]['active']:
+  if users is None:
+    users = read_tasks()
+  user_id = str(message.chat.id)
+  if user_id not in users or not users[user_id]['active']:
     return None
-   else:
-    return user_id
+  return user_id
 
 
 bot.polling()
