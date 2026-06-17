@@ -1,57 +1,69 @@
 import telebot
-from func import save_tasks, read_tasks
+from func import read_tasks
 import os
 from dotenv import load_dotenv
+import sqlite3
+
+# Подключение к бд
+DATABASE = 'baza.db'
+conn = sqlite3.connect(DATABASE)
+cursor = conn.cursor()
 
 load_dotenv()
 
 TOKEN = os.getenv("TOKEN")
-
-
-
 bot = telebot.TeleBot(TOKEN)# Создаем экземпляр бота с помощью токена
 
 
-try:
-
-      users = read_tasks()  # Пытаемся прочитать задачи из файла
-
-except FileNotFoundError:
-      users = {} # Если файл не найден, создаем пустой словарь для хранения
+users = read_tasks()  # Читаем задачи из бд
 
 
 @bot.message_handler(commands=['start'])# Декоратор для обработки команды /start
 def start(message):
     users = read_tasks()
-    user_id = str(message.chat.id)
-    if user_id not in users:
-      users[user_id] = {'active': True, 'tasks': []} # Инициализируем словарь для хранения задач пользователя
+    telegram_id = str(message.chat.id)
+    conn = sqlite3.connect('baza.db')
+    cursor = conn.cursor()
+
+    # Проверяет есть ли пользователь в бд, если нет - создает, если есть - активирует
+    user = check_users(message, users)
+    if user is None:
+      cursor.execute("INSERT INTO users (telegram_id) VALUES (?)", (telegram_id,))
+      bot.send_message(message.chat.id, 'Привет, я твой помощник для управления задачами! Чтобы узнать мои команды, напиши /help.')
     else:
-      users[user_id]['active'] = True # Если пользователь уже существует, просто активируем его
-    save_tasks(users)
-    return bot.send_message(message.chat.id, 'Привет, я твой бот😊')
+      cursor.execute("UPDATE users SET active = 1 WHERE telegram_id = ?", (telegram_id,))
+      bot.send_message(message.chat.id, 'Привет, я твой бот😊')
+
+    conn.commit()
+    conn.close()
 
 
 
 
 @bot.message_handler(commands=['add'])
-def add_task(message):
+def add_task(message): # Добавляет задачи пользователя
   users = read_tasks()
-  user_id = check_users(message, users)
-  if not user_id:
+  telegram_id = check_users(message, users)
+  conn = sqlite3.connect('baza.db')
+  cursor = conn.cursor()
+
+  # Проверяет есть ли полбзователь или активен ли он
+  if telegram_id is None or cursor.execute("SELECT active FROM users WHERE telegram_id = ?", (telegram_id,)).fetchone()[0] == 0:
     return bot.send_message(message.chat.id, 'Чтобы начать нажмите /start')
   else:
+
+    # Проверяет текст задачи после команды add
     task = message.text.split(maxsplit=1)
     if len(task) < 2:
       return bot.send_message(message.chat.id, "Пожалуйста, введите текст задачи после команды /add.")
     else:
       task = task[1]
     
-    tasks = {"text": task, "done": False}  # Создаем словарь с задачами для данного пользователя
-    users[user_id]['tasks'].append(tasks)
-    save_tasks(users)  # Сохраняем задачи в файл
-
-    return bot.send_message(message.chat.id, "Задача добавлена!")
+      # Добавляет задачу в базу данных
+      cursor.execute("INSERT INTO tasks (user_id, text) VALUES ((SELECT id FROM users WHERE telegram_id = ?), ?)", (telegram_id, task))
+      bot.send_message(message.chat.id, "Задача добавлена!")
+      conn.commit()
+      conn.close()
 
 
 @bot.message_handler(commands=['tasks'])
@@ -214,13 +226,17 @@ def stop(message):
        return bot.send_message(message.chat.id, 'Бот выключен')
 
 
-def check_users(message, users=None):
+def check_users(message, users=None): # Проверяет есть ли позьзователь в бд
   if users is None:
     users = read_tasks()
-  user_id = str(message.chat.id)
-  if user_id not in users or not users[user_id]['active']:
+  telegram_id = str(message.chat.id)
+  cursor = sqlite3.connect('baza.db').cursor()
+
+  # Запрашивает информацию из таблицы users для конкретного пользователя
+  cursor.execute("SELECT * FROM users WHERE telegram_id = ?", (telegram_id,))
+  if not cursor.fetchone():
     return None
-  return user_id
+  return telegram_id
 
 @bot.message_handler(commands=['help'])
 def help(message):
