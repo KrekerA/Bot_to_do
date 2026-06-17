@@ -2,3 +2,4 @@ bot.py
 __pycache__
 *.pyc
 .env
+baza.db
