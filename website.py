@@ -41,3 +41,17 @@ with get_connection() as conn:
     st.stop()
 
   st.success("✅ ID верифицирован")
+
+
+  # Проверяет есть ли задачи у пользователя
+  cursor.execute("""
+    SELECT text, done, created_at FROM tasks 
+    WHERE user_id = ? 
+    ORDER BY created_at DESC
+  """, (user_id,))
+
+  tasks_data = cursor.fetchall()
+
+  if not tasks_data:
+    st.info("📭 У вас пока нет задач. Добавьте их через команду /add в Telegram боте")
+    st.stop()
