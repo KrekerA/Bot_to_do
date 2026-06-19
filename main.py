@@ -1,229 +1,283 @@
 import telebot
-from func import save_tasks, read_tasks
+from func import read_tasks, get_connection
 import os
 from dotenv import load_dotenv
+import sqlite3
+
 
 load_dotenv()
 
 TOKEN = os.getenv("TOKEN")
-
-
-
 bot = telebot.TeleBot(TOKEN)# Создаем экземпляр бота с помощью токена
 
-
-try:
-
-      users = read_tasks()  # Пытаемся прочитать задачи из файла
-
-except FileNotFoundError:
-      users = {} # Если файл не найден, создаем пустой словарь для хранения
+users = read_tasks()  # Читает задачи из бд
 
 
 @bot.message_handler(commands=['start'])# Декоратор для обработки команды /start
 def start(message):
-    users = read_tasks()
-    user_id = str(message.chat.id)
-    if user_id not in users:
-      users[user_id] = {'active': True, 'tasks': []} # Инициализируем словарь для хранения задач пользователя
+  telegram_id = str(message.chat.id)
+
+  with get_connection() as conn:
+    cursor = conn.cursor()
+
+    # Проверяет есть ли пользователь в бд, если нет - создает, если есть - активирует
+    user = check_users(message)
+    if user is None:
+      cursor.execute("INSERT INTO users (telegram_id) VALUES (?)", (telegram_id,))
+      bot.send_message(message.chat.id, 'Привет, я твой помощник для управления задачами! Чтобы узнать мои команды, напиши /help.')
     else:
-      users[user_id]['active'] = True # Если пользователь уже существует, просто активируем его
-    save_tasks(users)
-    return bot.send_message(message.chat.id, 'Привет, я твой бот😊')
+      cursor.execute("UPDATE users SET active = 1 WHERE telegram_id = ?", (telegram_id,))
+      bot.send_message(message.chat.id, 'Привет, я твой бот😊')
+
+    conn.commit()
 
 
 
 
 @bot.message_handler(commands=['add'])
-def add_task(message):
-  users = read_tasks()
-  user_id = check_users(message, users)
-  if not user_id:
-    return bot.send_message(message.chat.id, 'Чтобы начать нажмите /start')
-  else:
-    task = message.text.split(maxsplit=1)
-    if len(task) < 2:
-      return bot.send_message(message.chat.id, "Пожалуйста, введите текст задачи после команды /add.")
-    else:
-      task = task[1]
-    
-    tasks = {"text": task, "done": False}  # Создаем словарь с задачами для данного пользователя
-    users[user_id]['tasks'].append(tasks)
-    save_tasks(users)  # Сохраняем задачи в файл
+def add_task(message): # Добавляет задачи пользователя
+  telegram_id = check_users(message)
 
-    return bot.send_message(message.chat.id, "Задача добавлена!")
+  with get_connection() as conn:
+    cursor = conn.cursor()
+
+    # Проверяет есть ли пользователь и активен ли он
+    if telegram_id is None or cursor.execute("SELECT active FROM users WHERE telegram_id = ?", (telegram_id,)).fetchone()[0] == 0:
+      return bot.send_message(message.chat.id, 'Чтобы начать нажмите /start')
+    else:
+
+      # Проверяет текст задачи после команды add
+      task = message.text.split(maxsplit=1)
+      if len(task) < 2:
+        return bot.send_message(message.chat.id, "Пожалуйста, введите текст задачи после команды /add.")
+      else:
+        task = task[1]
+      
+        # Добавляет задачу в базу данных
+        cursor.execute("INSERT INTO tasks (user_id, text) VALUES ((SELECT id FROM users WHERE telegram_id = ?), ?)", (telegram_id, task))
+        bot.send_message(message.chat.id, "Задача добавлена!")
+        conn.commit()
 
 
 @bot.message_handler(commands=['tasks'])
-def list_tasks(message):
-  users = read_tasks()
-  user_id = check_users(message, users)
-  if not user_id:
-    return bot.send_message(message.chat.id, 'Чтобы начать нажмите /start')
-  if not users[user_id]['tasks']:
-    return bot.send_message(message.chat.id, "Список задач пуст. Чтобы добавить задачу используй /add.")
-  user_tasks = users[user_id]['tasks']
-  lines = []
-  for i, task in enumerate(user_tasks):
-    lines.append(f"{i + 1}. {task['text']} {'✅' if task['done'] else '❌'}")
-  return bot.send_message(message.chat.id, "\n".join(lines))
+def list_tasks(message): # Показывает список задач пользователя
+  telegram_id = check_users(message)
+  with get_connection() as conn:
+    cursor = conn.cursor()
+
+    # Проверяет есть ли пользователь и активен ли он
+    if telegram_id is None or cursor.execute("SELECT active FROM users WHERE telegram_id = ?", (telegram_id,)).fetchone()[0] == 0:
+      return bot.send_message(message.chat.id, 'Чтобы начать нажмите /start')
+    else:
+      # Запрашивает текст, дату создания задачи и выполнена ли она из бд
+      cursor.execute("SELECT text, done, created_at FROM tasks WHERE user_id = (SELECT id FROM users WHERE telegram_id = ?)", (telegram_id,))
+      tasks = cursor.fetchall()
+      conn.close()
+
+      # Если нет задач просит добавить задачи командой add
+    if not tasks:
+      return bot.send_message(message.chat.id, "Список задач пуст. Чтобы добавить задачу используй /add.")
+    else:
+      # Показывает задачи пользователю
+      lines = []
+      for i, (text, done, created_at) in enumerate(tasks):
+        lines.append(f"{i + 1}. {text} {'✅' if done else '❌'} (создано: {created_at})")
+      return bot.send_message(message.chat.id, "\n".join(lines))
 
 
 
 
 @bot.message_handler(commands=['delete'])
-def delete_tasks(message):
-      users = read_tasks()
-      user_id = check_users(message, users)
-      if not user_id: 
-        return bot.send_message(message.chat.id, 'Чтобы начать нажмите /start')
-      else:
-        task = message.text.split(maxsplit=1)
-        if len(task) < 2:
-          return bot.send_message(message.chat.id, "Пожалуйста, введите текст задачи после команды /delete.")
+def delete_tasks(message): # Удаляет задачи пользователя
+      telegram_id = check_users(message)
+      with get_connection() as conn:
+        cursor = conn.cursor()
+        
+        # Проверяет есть ли пользователь и активен ли он
+        if telegram_id is None or cursor.execute("SELECT active FROM users WHERE telegram_id = ?", (telegram_id,)).fetchone()[0] == 0: 
+          return bot.send_message(message.chat.id, 'Чтобы начать нажмите /start')
         else:
-          task = task[1]
-        if not users[user_id]['tasks']:
-          return bot.send_message(message.chat.id, "Список задач пуст. Чтобы добавить задачу используй /add.")
-        else:
-          try:
-            if task.isdigit():
-              try:
-                users[user_id]['tasks'].pop(int(task) - 1)
-                save_tasks(users)  # Сохраняем задачи в файл
-                return bot.send_message(message.chat.id, "Задача удалена!")
-              except IndexError:
-                return bot.send_message(message.chat.id, "Неверный номер задачи.")
+          
+          # Проверяет текст задачи после команды delete
+          task = message.text.split(maxsplit=1)
+          if len(task) < 2:
+            return bot.send_message(message.chat.id, "Пожалуйста, введите текст задачи после команды /delete.")
+          else:
+            task = task[1]
+
+            # Запрашивает задачи пользователя, если их нет - просит добавить
+            cursor.execute("SELECT * FROM tasks WHERE user_id = (SELECT id FROM users WHERE telegram_id = ?)", (telegram_id,))
+            if not cursor.fetchall():
+              return bot.send_message(message.chat.id, "Список задач пуст. Чтобы добавить задачу используй /add.")
             else:
-              for item in users[user_id]['tasks']:
-                if item['text'] == task:
-                  users[user_id]['tasks'].remove(item)
-                  save_tasks(users)  # Сохраняем задачи в файл
-                  return bot.send_message(message.chat.id, "Задача удалена!")
-              return bot.send_message(message.chat.id, "Задача не найдена в списке.")
-                
-          except ValueError:
-              return bot.send_message(message.chat.id, "Задача не найдена в списке.")      
+
+              # Если это номер задачи пытается ее удалить
+              if task.isdigit():
+                  cursor.execute("DELETE FROM tasks WHERE id = (SELECT id FROM tasks WHERE user_id = (SELECT id FROM users WHERE telegram_id = ?) LIMIT 1 OFFSET ?)", (telegram_id, int(task) - 1))
+                  if cursor.rowcount == 0: # Если ничего не удаляется сообщает что номер неверный
+                    return bot.send_message(message.chat.id, "Неверный номер задачи.")
+                  else:
+                    bot.send_message(message.chat.id, "Задача удалена!")
+                    conn.commit()
+
+              # Если это текст пытается удалить задачу
+              else:
+                cursor.execute("DELETE FROM tasks WHERE user_id = (SELECT id FROM users WHERE telegram_id = ?) AND text = ?", (telegram_id, task))
+                if cursor.rowcount == 0:# Если ничего не удаляется сообщает что задача не найдена
+                  bot.send_message(message.chat.id, "Задача не найдена в списке.")
+                else: 
+                  bot.send_message(message.chat.id, "Задача удалена!")
+                  conn.commit()
 
 
 
 @bot.message_handler(commands=['clear'])
-def clear_tasks(message):
-    users =read_tasks()
-    user_id = check_users(message, users)
-    if not user_id: 
-        return bot.send_message(message.chat.id, 'Чтобы начать нажмите /start')
-    else:
-      if not users[user_id]['tasks']:
-          return bot.send_message(message.chat.id, "Список пуст. Чтобы добавить задачу используй /add.")
-      else:    
-          users[user_id]['tasks'] = []
-          save_tasks(users)
-          return bot.send_message(message.chat.id, "Все задачи удалены!")
+def clear_tasks(message): # Удаляет все задачи пользователя
+    telegram_id = check_users(message)
+    with get_connection() as conn:
+      cursor = conn.cursor()
+
+      # Проверяет есть ли пользователь и активен ли он
+      if telegram_id is None or cursor.execute("SELECT active FROM users WHERE telegram_id = ?", (telegram_id,)).fetchone()[0] == 0: 
+          return bot.send_message(message.chat.id, 'Чтобы начать нажмите /start')
+      else:
+
+        # Пытается удалить задачу
+        cursor.execute("DELETE FROM tasks WHERE user_id = (SELECT id FROM users WHERE telegram_id = ?)", (telegram_id,))
+        if cursor.rowcount == 0: # Если ничего не удаляется сообщает что список пуст
+            return bot.send_message(message.chat.id, "Список уже пуст. Чтобы добавить задачу используй /add.")
+        else:    
+            bot.send_message(message.chat.id, "Все задачи удалены!")
+            conn.commit()
 
 
 
 @bot.message_handler(commands=['done'])
-def done_tasks(message):
-  users = read_tasks()
-  user_id = check_users(message, users)
-  if not user_id: 
-        return bot.send_message(message.chat.id, 'Чтобы начать нажмите /start')
-  else:
-    task = message.text.split(maxsplit=1)
-    if len(task) < 2:
-      return bot.send_message(message.chat.id, "Пожалуйста, введите текст задачи после команды /done.")
+def done_tasks(message): # Делает задачу выполненной
+  telegram_id = check_users(message)
+  with get_connection() as conn:
+    cursor = conn.cursor()
+
+    # Проверяет есть ли пользователь и активен ли он
+    if telegram_id is None or cursor.execute("SELECT active FROM users WHERE telegram_id = ?", (telegram_id,)).fetchone()[0] == 0: 
+          return bot.send_message(message.chat.id, 'Чтобы начать нажмите /start')
     else:
-      task = task[1]
-    if not users[user_id]['tasks']:
-      bot.send_message(message.chat.id, "Список задач пуст. Чтобы добавить задачу используй /add.")
-    else:
-      try:
-        if task.isdigit():
-          try:
-            if users[user_id]['tasks'][int(task) - 1]['done']:
-              return bot.send_message(message.chat.id, "Задача уже отмечена как выполненная.")
-            else:
-              users[user_id]['tasks'][int(task) - 1]['done'] = True
-              save_tasks(users)
-              return bot.send_message(message.chat.id, "Задача отмечена как выполненная!")
-          except IndexError:
-              return bot.send_message(message.chat.id, "Неверный номер задачи.")
+
+      # Проверяет текст задачи после команды done
+      task = message.text.split(maxsplit=1)
+      if len(task) < 2:
+        return bot.send_message(message.chat.id, "Пожалуйста, введите текст задачи после команды /done.")
+      else:
+        task = task[1]
+
+        # Запрашивает задачи пользователя, если их нет - просит добавить
+        cursor.execute("SELECT * FROM tasks WHERE user_id = (SELECT id FROM users WHERE telegram_id = ?)", (telegram_id,))
+        if not cursor.fetchall():
+          return bot.send_message(message.chat.id, "Список задач пуст. Чтобы добавить задачу используй /add.")
         else:
-            for item in users[user_id]['tasks']:
-              if item['text'] == task:
-                item['done'] = True
-                save_tasks(users)
-                return bot.send_message(message.chat.id, "Задача отмечена как выполненная!")
-            return bot.send_message(message.chat.id, "Задача не найдена в списке.")
-      except ValueError:
-            return bot.send_message(message.chat.id, "Задача не найдена в списке.")
+
+          # Если это номер задачи пытается отметить ее как выполненная
+          if task.isdigit():
+              cursor.execute("UPDATE tasks SET done = 1 WHERE id = (SELECT id FROM tasks WHERE user_id = (SELECT id FROM users WHERE telegram_id = ?) LIMIT 1 OFFSET ?)", (telegram_id, int(task) - 1))
+              if cursor.rowcount == 0: # Если ничего не отмечается сообщает что номер неверный
+                return bot.send_message(message.chat.id, "Неверный номер задачи.")
+              else:
+                bot.send_message(message.chat.id, "Задача отмечена как выполненная!")
+                conn.commit()
+                conn.close()
+          else:
+              
+              # Если это текст задачи пытается отметить ее как выполненная
+              cursor.execute("UPDATE tasks SET done = 1 WHERE user_id = (SELECT id FROM users WHERE telegram_id = ?) AND text = ?", (telegram_id, task))
+              if cursor.rowcount == 0: # Если ничего не отмечается сообщает что задача не найдена
+                return bot.send_message(message.chat.id, "Задача не найдена в списке.")
+              else:
+                  bot.send_message(message.chat.id, "Задача отмечена как выполненная!")
+                  conn.commit()
+            
+     
 
 
 
 @bot.message_handler(commands=['undone'])
-def undone_tasks(message):
-  users = read_tasks()
-  user_id = check_users(message, users)
-  if not user_id: 
-        return bot.send_message(message.chat.id, 'Чтобы начать нажмите /start')
-  else:
-    task = message.text.split(maxsplit=1)
-    if len(task) < 2:
-      return bot.send_message(message.chat.id, "Пожалуйста, введите текст задачи после команды /undone.")
+def undone_tasks(message): # Делает задачу не выполненной
+  telegram_id = check_users(message)
+  with get_connection() as conn:
+    cursor = conn.cursor()
+
+    # Проверяет есть ли пользователь и активен ли он
+    if telegram_id is None or cursor.execute("SELECT active FROM users WHERE telegram_id = ?", (telegram_id,)).fetchone()[0] == 0: 
+          return bot.send_message(message.chat.id, 'Чтобы начать нажмите /start')
     else:
-      task = task[1]
-    if not users[user_id]['tasks']:
-      bot.send_message(message.chat.id, "Список задач пуст. Чтобы добавить задачу используй /add.")
-    else:
-      try:
-        if task.isdigit():
-            try:
-              if not users[user_id]['tasks'][int(task) - 1]['done']:
-                return bot.send_message(message.chat.id, "Задача уже отмечена как не выполненная.")
-              else:
-                users[user_id]['tasks'][int(task) - 1]['done'] = False
-                save_tasks(users)  # Сохраняем задачи в файл
-                bot.send_message(message.chat.id, "Задача отмечена как не выполненная!")
-            except IndexError:
-              return bot.send_message(message.chat.id, "Неверный номер задачи.")
+
+      # Проверяет текст задачи после команды undone
+      task = message.text.split(maxsplit=1)
+      if len(task) < 2:
+        return bot.send_message(message.chat.id, "Пожалуйста, введите текст задачи после команды /undone.")
+      else:
+        task = task[1]
+
+      # Запрашивает задачи пользователя, если их нет - просит добавить
+        cursor.execute("SELECT * FROM tasks WHERE user_id = (SELECT id FROM users WHERE telegram_id = ?)", (telegram_id,))
+        if not cursor.fetchall():
+          return bot.send_message(message.chat.id, "Список задач пуст. Чтобы добавить задачу используй /add.")
         else:
-            for item in users[user_id]['tasks']:
-              if item['text'] == task:
-                item['done'] = False
-                save_tasks(users)  # Сохраняем задачи в файл
-                return bot.send_message(message.chat.id, "Задача отмечена как не выполненная!")
-            return bot.send_message(message.chat.id, "Задача не найдена в списке.")
-      except ValueError:
-            return bot.send_message(message.chat.id, "Задача не найдена в списке.")
+
+          # Если это номер задачи пытается отметить ее как  не выполненная
+          if task.isdigit():
+              cursor.execute("UPDATE tasks SET done = 0 WHERE id = (SELECT id FROM tasks WHERE user_id = (SELECT id FROM users WHERE telegram_id = ?) LIMIT 1 OFFSET ?)", (telegram_id, int(task) - 1))
+              if cursor.rowcount == 0: # Если ничего не отмечается сообщает что номер неверный
+                  return bot.send_message(message.chat.id, "Неверный номер задачи.")
+              else:
+                  conn.commit()
+                  bot.send_message(message.chat.id, "Задача отмечена как не выполненная!")
+          else:
+              
+              # Если это текст задачи пытается отметить ее как не выполненная
+              cursor.execute("UPDATE tasks SET done = 0 WHERE user_id = (SELECT id FROM users WHERE telegram_id = ?) AND text = ?", (telegram_id, task))
+              if cursor.rowcount == 0: # Если ничего не отмечается сообщает что задача не найдена
+                  return bot.send_message(message.chat.id, "Задача не найдена в списке.")
+              else:
+                  bot.send_message(message.chat.id, "Задача отмечена как не выполненная!")
+                  conn.commit()
 
 
 
 
 @bot.message_handler(commands=['stop'])
-def stop(message):
-    users = read_tasks()
-    user_id = str(message.chat.id)
-    if user_id not in users:
-      return bot.send_message(message.chat.id, 'Чтобы начать нажмите start')
-    if not users[user_id]['active']:
-       return bot.send_message(message.chat.id, 'Бот уже выключен, чтобы начать нажмите /start')
-    else:
-       users[user_id]['active'] = False
-       save_tasks(users)
-       return bot.send_message(message.chat.id, 'Бот выключен')
+def stop(message): # Останавливает бота для пользователя
+    telegram_id = str(message.chat.id)
+    with get_connection() as conn:
+      cursor = conn.cursor()
+
+      # Проверяет есть ли пользователь в бд
+      if telegram_id is None:
+        return bot.send_message(message.chat.id, 'Чтобы начать нажмите start')
+      
+      # Проверяет активен ли он
+      if cursor.execute("SELECT active FROM users WHERE telegram_id = ?", (telegram_id,)).fetchone()[0] == 0:
+        return bot.send_message(message.chat.id, 'Бот уже выключен, чтобы начать нажмите /start')
+      else:
+        
+        # Деактивирует пользователя
+        cursor.execute("UPDATE users SET active = 0 WHERE telegram_id = ?", (telegram_id,))
+        bot.send_message(message.chat.id, 'Бот выключен!')
+        conn.commit()
 
 
-def check_users(message, users=None):
-  if users is None:
-    users = read_tasks()
-  user_id = str(message.chat.id)
-  if user_id not in users or not users[user_id]['active']:
-    return None
-  return user_id
+def check_users(message): # Проверяет есть ли позьзователь в бд
+  telegram_id = str(message.chat.id)
+  with get_connection() as conn:
+    cursor = conn.cursor()
+
+    # Запрашивает информацию из таблицы users для конкретного пользователя
+    cursor.execute("SELECT * FROM users WHERE telegram_id = ?", (telegram_id,))
+    if not cursor.fetchone():
+      return None
+    return telegram_id
 
 @bot.message_handler(commands=['help'])
-def help(message):
+def help(message): # Выводит список команд для бота
    bot.send_message(message.chat.id, 'Команды бота \n' \
    '- /start — зарегистрировать пользователя и активировать бота \n' \
    '- /add <текст задачи> — добавить новую задачу \n' \
