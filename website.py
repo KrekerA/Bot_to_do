@@ -14,3 +14,30 @@ try:
 except:
     create_database()
     get_connection()
+
+
+
+# Просит ввести ID пользователя
+telegram_id = st.text_input("Введите ваш Telegram ID для просмотра аналитики: ")
+
+if not telegram_id:
+    st.info("Введите Telegram ID чтобы просмотреть аналитику")
+    st.stop()
+
+with get_connection() as conn:
+  # Проверяет есть ли пользователь и активен ли он
+  cursor = conn.cursor()
+  cursor.execute("SELECT id, active FROM users WHERE telegram_id = ?", (telegram_id,))
+  user_result = cursor.fetchone()
+
+  if not user_result:
+    st.warning("❌ Пользователь не найден. Пожалуйста, запустите /start в Telegram боте")
+    st.stop()
+
+  user_id, is_active = user_result
+
+  if not is_active:
+    st.warning("⚠️ Ваш аккаунт деактивирован")
+    st.stop()
+
+  st.success("✅ ID верифицирован")
