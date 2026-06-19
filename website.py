@@ -93,3 +93,12 @@ if not daily_completed.empty:
                   title="Количество выполненных задач по дням",
                   color="count", color_continuous_scale="Viridis")
     st.plotly_chart(fig, use_container_width=True)
+
+
+# 5. Выводит таблицу задач
+st.subheader("📋 Ваш список задач")
+display_df = df[['text', 'done', 'created_at']].copy()
+display_df['Статус'] = display_df['done'].apply(lambda x: '✅ Выполнено' if x else '⏳ В процессе')
+display_df = display_df[['text', 'Статус', 'created_at']].rename(
+    columns={'text': 'Задача', 'created_at': 'Дата создания'})
+st.dataframe(display_df, use_container_width=True, hide_index=True)
