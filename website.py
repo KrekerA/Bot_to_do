@@ -1,6 +1,7 @@
 import sqlite3
 import pandas as pd
 import streamlit as st
+import plotly.express as px
 from func import create_database, get_connection
 
 # Заголовок сайта
@@ -77,3 +78,18 @@ with col2:
     st.metric(label="Выполнено ✅", value=completed_tasks)
 with col3:
     st.metric(label="В процессе ⏳", value=pending_tasks)
+
+
+
+st.markdown("---")
+
+# Создает график выполненых задач с помощью plotly
+st.subheader("📈 Динамика выполненных задач")
+daily_completed = df[df['done']].groupby('date').size().reset_index(name='count')
+
+if not daily_completed.empty:
+    fig = px.bar(daily_completed, x="date", y="count", 
+                  labels={"date": "Дата", "count": "Выполненные задачи"},
+                  title="Количество выполненных задач по дням",
+                  color="count", color_continuous_scale="Viridis")
+    st.plotly_chart(fig, use_container_width=True)
