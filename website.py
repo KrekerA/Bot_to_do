@@ -1,4 +1,5 @@
 import sqlite3
+import pandas as pd
 import streamlit as st
 from func import create_database, get_connection
 
@@ -55,3 +56,24 @@ with get_connection() as conn:
   if not tasks_data:
     st.info("📭 У вас пока нет задач. Добавьте их через команду /add в Telegram боте")
     st.stop()
+
+
+# Преобразует полученные задачи в Data Frame с помощью Pandas 
+df = pd.DataFrame(tasks_data, columns=['text', 'done', 'created_at'])
+df['done'] = df['done'].astype(bool)
+df['created_at'] = pd.to_datetime(df['created_at'])
+df['date'] = df['created_at'].dt.date
+
+
+# Выводит сколько всего задач и сколько из них выполнено и невыполнено
+total_tasks = len(df)
+completed_tasks = df['done'].sum()
+pending_tasks = total_tasks - completed_tasks
+
+col1, col2, col3 = st.columns(3)
+with col1:
+    st.metric(label="Всего задач", value=total_tasks)
+with col2:
+    st.metric(label="Выполнено ✅", value=completed_tasks)
+with col3:
+    st.metric(label="В процессе ⏳", value=pending_tasks)
