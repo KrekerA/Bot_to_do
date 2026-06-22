@@ -265,6 +265,21 @@ def stop(message): # Останавливает бота для пользова
         conn.commit()
 
 
+@bot.message_handler(commands=['my_id'])
+def get_telegram_id(message):
+   telegram_id = check_users(message)
+   with get_connection() as conn:
+    cursor = conn.cursor()
+
+    # Проверяет есть ли пользователь и активен ли он
+    if telegram_id is None or cursor.execute("SELECT active FROM users WHERE telegram_id = ?", (telegram_id,)).fetchone()[0] == 0: 
+      return bot.send_message(message.chat.id, 'Чтобы начать нажмите /start')
+    else:
+      return bot.send_message(message.chat.id, f"Ваш telegram id {telegram_id}")
+
+
+
+
 def check_users(message): # Проверяет есть ли позьзователь в бд
   telegram_id = str(message.chat.id)
   with get_connection() as conn:
@@ -287,6 +302,7 @@ def help(message): # Выводит список команд для бота
    '- /undone <номер или текст задачи> — отметить задачу невыполненной \n' \
    '- /clear — удалить все задачи \n' \
    '- /stop — деактивировать бота для текущего пользователя \n' \
+   '- /my_id — узнать свой telegram id \n' \
    '- /help - доступные команды')
 
 
