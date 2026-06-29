@@ -182,3 +182,9 @@ else:
             columns={'text': 'Задача', 'created_at': 'Дата создания'}
         )
         st.dataframe(display_df, use_container_width=True, hide_index=True)
+
+        if st.button("Забыть меня"):
+            controller.remove("logged_in_user") # Удаляет cookie
+            del st.session_state["telegram_id"]    # Удаляет из сессии
+            time.sleep(0.5)
+            st.rerun()                          # Перезапускает страницу
