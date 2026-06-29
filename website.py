@@ -5,6 +5,7 @@ import streamlit as st
 import plotly.express as px
 from func import create_database, get_connection
 from streamlit_cookies_controller import CookieController
+from datetime import datetime
 
 def show_user_tasks(telegram_id): # функция показывающая задачи пользователю
    with get_connection() as conn:
@@ -82,17 +83,23 @@ def show_user_tasks(telegram_id): # функция показывающая за
 
 
         st.subheader("📋 Ваш список задач")
+
         # Улучшеный вывод таблицы задач
-        for task in tasks_data:
+        for index, task in enumerate(tasks_data):
             task_id, text, done, data = task
-            
-            col1, col2, col3 = st.columns([6, 2, 2]) 
+            number_task = index + 1 # номер задачи
+            col1, col2, col3, col4, col5 = st.columns([4, 2, 4, 4, 4])
             
             with col1:
+                text = f'{number_task}. {text}'
                 # Если задача выполнена, зачеркивает текст
                 st.write(f"~~{text}~~" if done else text)
                 
+                # показывает статус задачи
             with col2:
+                st.write('✅' if done else '❌')
+
+            with col3:
                 if not done:
                     # Уникальный ключ по id задачи
                     if st.button("Выполнить", key=f"comp_{task_id}"):
@@ -101,14 +108,29 @@ def show_user_tasks(telegram_id): # функция показывающая за
                             cursor.execute("UPDATE tasks SET done = 1 WHERE id = ?;", (task_id,))
                             conn.commit()
                         st.rerun() # Перезапускает интерфейс
-                        
-            with col3:
+                else:
+                    if st.button("Отменить выполнение", key=f"uncomp_{task_id}"):
+                        with get_connection() as conn:
+                            cursor = conn.cursor()
+                            cursor.execute("UPDATE tasks SET done = 0 WHERE id = ?;", (task_id,))
+                            conn.commit()
+                        st.rerun() # Перезапускает интерфейс
+
+            with col4:
                 if st.button("Удалить", key=f"del_{task_id}"):
                     with get_connection() as conn:
                         cursor = conn.cursor()
                         cursor.execute("DELETE FROM tasks WHERE id = ?;", (task_id,))
                         conn.commit()
                     st.rerun() # Перезапускает интерфейс
+            
+            # дата создания
+            with col5:
+                date = data
+                db_date = datetime.strptime(date, "%Y-%m-%d %H:%M:%S")
+                st.write(db_date.strftime("%d.%b.%Y в %H:%M"))
+            
+
 
 # Заголовок сайта
 st.set_page_config(page_title="Трекер Продуктивности", layout="wide")
