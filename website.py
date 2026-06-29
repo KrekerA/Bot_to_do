@@ -11,7 +11,7 @@ def show_user_tasks(telegram_id): # функция показывающая за
         cursor = conn.cursor()
         # Проверяет есть ли задачи у пользователя
         cursor.execute("""
-            SELECT text, done, created_at FROM tasks 
+            SELECT id, text, done, created_at FROM tasks 
             WHERE user_id = (SELECT id FROM users WHERE telegram_id = ?) 
             ORDER BY created_at DESC
         """, (telegram_id,))
@@ -24,7 +24,7 @@ def show_user_tasks(telegram_id): # функция показывающая за
             
 
         # Преобразует полученные задачи в Data Frame с помощью Pandas 
-        df = pd.DataFrame(tasks_data, columns=['text', 'done', 'created_at'])
+        df = pd.DataFrame(tasks_data, columns=['id', 'text', 'done', 'created_at'])
         df['done'] = df['done'].astype(bool)
         df['created_at'] = pd.to_datetime(df['created_at'])
         df['date'] = df['created_at'].dt.date
@@ -55,15 +55,60 @@ def show_user_tasks(telegram_id): # функция показывающая за
                         color="count", color_continuous_scale="Viridis")
             st.plotly_chart(fig, use_container_width=True)
 
-        # 5. Выводит таблицу задач
-        st.subheader("📋 Ваш список задач")
-        display_df = df[['text', 'done', 'created_at']].copy()
-        display_df['Статус'] = display_df['done'].apply(lambda x: '✅ Выполнено' if x else '⏳ В процессе')
-        display_df = display_df[['text', 'Статус', 'created_at']].rename(
-            columns={'text': 'Задача', 'created_at': 'Дата создания'}
-        )
-        st.dataframe(display_df, use_container_width=True, hide_index=True)
 
+        # Форма для добавления задачи
+        with st.form(key="add_task_form", clear_on_submit=True):
+            # Текстовое поле для ввода
+            task_text = st.text_input("Что нужно сделать?")
+            
+            # Кнопка отправки формы
+            submit_button = st.form_submit_button(label="Добавить задачу")
+
+        if submit_button:
+            if task_text.strip() != "":
+                
+                with get_connection() as conn:
+                  cursor = conn.cursor()
+                  
+                  cursor.execute("INSERT INTO tasks (user_id, text) VALUES ((SELECT id FROM users WHERE telegram_id = ?), ?)", (telegram_id, task_text))
+                  conn.commit()
+                
+                st.success("Задача успешно добавлена!")
+                
+                # Перезапускает интерфейс, чтобы новая задача сразу появилась в списке ниже
+                st.rerun()
+            else:
+                st.warning("Название задачи не может быть пустым.")
+
+
+        st.subheader("📋 Ваш список задач")
+        # Улучшеный вывод таблицы задач
+        for task in tasks_data:
+            task_id, text, done, data = task
+            
+            col1, col2, col3 = st.columns([6, 2, 2]) 
+            
+            with col1:
+                # Если задача выполнена, зачеркивает текст
+                st.write(f"~~{text}~~" if done else text)
+                
+            with col2:
+                if not done:
+                    # Уникальный ключ по id задачи
+                    if st.button("Выполнить", key=f"comp_{task_id}"):
+                        with get_connection() as conn:
+                            cursor = conn.cursor()
+                            cursor.execute("UPDATE tasks SET done = 1 WHERE id = ?;", (task_id,))
+                            conn.commit()
+                        st.rerun() # Перезапускает интерфейс
+                        
+            with col3:
+                if st.button("Удалить", key=f"del_{task_id}"):
+                    with get_connection() as conn:
+                        cursor = conn.cursor()
+                        cursor.execute("DELETE FROM tasks WHERE id = ?;", (task_id,))
+                        conn.commit()
+                    st.rerun() # Перезапускает интерфейс
 
 # Заголовок сайта
 st.set_page_config(page_title="Трекер Продуктивности", layout="wide")
