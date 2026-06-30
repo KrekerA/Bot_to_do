@@ -84,22 +84,37 @@ def show_user_tasks(telegram_id): # функция показывающая за
 
         st.subheader("📋 Ваш список задач")
 
+       # Шапка таблицы
+        header_col1, header_col2, header_col3, header_col4, header_col5 = st.columns([0.5, 4.7, 4, 6, 3.8])
+        with header_col1:
+            st.markdown('**№**')
+        with header_col2:
+            st.markdown('**Название**')
+        with header_col3:
+            st.markdown('**Статус**')
+        with header_col4:
+            st.markdown('**Действия**')
+        with header_col5:
+            st.markdown('**Дата**')
+            
+
         # Улучшеный вывод таблицы задач
-        for index, task in enumerate(tasks_data):
+        for index, task in enumerate(tasks_data[:5]): # За счет среза выводятся 5 задач
             task_id, text, done, data = task
             number_task = index + 1 # номер задачи
-            col1, col2, col3, col4, col5 = st.columns([4, 2, 4, 4, 4])
+            col1, col2, col3, col4, col5 = st.columns([5, 2, 3, 3, 4])
             
             with col1:
-                text = f'{number_task}. {text}'
+                text = f'{number_task}.     {text}'
                 # Если задача выполнена, зачеркивает текст
                 st.write(f"~~{text}~~" if done else text)
                 
-                # показывает статус задачи
+                # Статус задачи
             with col2:
                 st.write('✅' if done else '❌')
 
             with col3:
+                # Кнопки выполнить отменить выполнение
                 if not done:
                     # Уникальный ключ по id задачи
                     if st.button("Выполнить", key=f"comp_{task_id}"):
@@ -117,6 +132,7 @@ def show_user_tasks(telegram_id): # функция показывающая за
                         st.rerun() # Перезапускает интерфейс
 
             with col4:
+                # Кнопка удалить
                 if st.button("Удалить", key=f"del_{task_id}"):
                     with get_connection() as conn:
                         cursor = conn.cursor()
@@ -124,11 +140,63 @@ def show_user_tasks(telegram_id): # функция показывающая за
                         conn.commit()
                     st.rerun() # Перезапускает интерфейс
             
-            # дата создания
+            # Дата создания
             with col5:
                 date = data
                 db_date = datetime.strptime(date, "%Y-%m-%d %H:%M:%S")
                 st.write(db_date.strftime("%d.%b.%Y в %H:%M"))
+
+
+        if len(tasks_data) > 5: # если задач больше 5, скрывает их
+            st.write("")
+            # Раскрывающийся блок
+            with st.expander(f"Показать все({len(tasks_data)-5})"):
+
+                # Выводит оставшиеся задачи с помощью среза и начинает отсчет с 5
+                for index, task in enumerate(tasks_data[5:], start = 5):
+                    task_id, text, done, data = task
+                    number_task = index + 1 # номер задачи
+                    col1, col2, col3, col4, col5 = st.columns([5, 2, 3, 3, 4])
+            
+                    with col1:
+                        text = f'{number_task}.     {text}'
+                        # Если задача выполнена, зачеркивает текст
+                        st.write(f"~~{text}~~" if done else text)
+                        
+                        # показывает статус задачи
+                    with col2:
+                        st.write('✅' if done else '❌')
+
+                    with col3:
+                        if not done:
+                            # Уникальный ключ по id задачи
+                            if st.button("Выполнить", key=f"comp_{task_id}"):
+                                with get_connection() as conn:
+                                    cursor = conn.cursor()
+                                    cursor.execute("UPDATE tasks SET done = 1 WHERE id = ?;", (task_id,))
+                                    conn.commit()
+                                st.rerun() # Перезапускает интерфейс
+                        else:
+                            if st.button("Отменить выполнение", key=f"uncomp_{task_id}"):
+                                with get_connection() as conn:
+                                    cursor = conn.cursor()
+                                    cursor.execute("UPDATE tasks SET done = 0 WHERE id = ?;", (task_id,))
+                                    conn.commit()
+                                st.rerun() # Перезапускает интерфейс
+
+                    with col4:
+                        if st.button("Удалить", key=f"del_{task_id}"):
+                            with get_connection() as conn:
+                                cursor = conn.cursor()
+                                cursor.execute("DELETE FROM tasks WHERE id = ?;", (task_id,))
+                                conn.commit()
+                            st.rerun() # Перезапускает интерфейс
+                    
+                    # дата создания
+                    with col5:
+                        date = data
+                        db_date = datetime.strptime(date, "%Y-%m-%d %H:%M:%S")
+                        st.write(db_date.strftime("%d.%b.%Y в %H:%M"))
             
 
 
