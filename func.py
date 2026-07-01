@@ -24,6 +24,14 @@ def read_tasks(): # Читает задачи из базы данных
   except sqlite3.OperationalError:
     create_database()
 
+def check_table():
+   with get_connection() as conn:
+    cursor = conn.cursor()
+    try:
+       cursor.execute("SELECT * FROM users, tasks, tokens")
+    except sqlite3.OperationalError:
+       create_database()
+       conn.commit()
 
 def create_database(): # Создает базу данных и таблицы
   with get_connection() as conn:
@@ -55,6 +63,6 @@ def create_database(): # Создает базу данных и таблицы
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     telegram_id INTEGER,
     session_token TEXT NOT NULL,
-    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
   ''')

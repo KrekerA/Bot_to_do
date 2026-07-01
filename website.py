@@ -3,18 +3,13 @@ import sqlite3
 import pandas as pd
 import streamlit as st
 import plotly.express as px
-from func import create_database, get_connection
+from func import create_database, get_connection, check_table
 from streamlit_cookies_controller import CookieController
 from datetime import datetime
 import secrets
 
 #  Подключает к бд и создает если её нет
-try:
-    get_connection()
-except:
-    create_database()
-    get_connection()
-
+check_table()
 DATABASE = 'baza.db'
 
 def show_user_tasks(telegram_id): # функция показывающая задачи пользователю
