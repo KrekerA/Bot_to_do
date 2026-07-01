@@ -6,6 +6,16 @@ import plotly.express as px
 from func import create_database, get_connection
 from streamlit_cookies_controller import CookieController
 from datetime import datetime
+import secrets
+
+#  Подключает к бд и создает если её нет
+try:
+    get_connection()
+except:
+    create_database()
+    get_connection()
+
+DATABASE = 'baza.db'
 
 def show_user_tasks(telegram_id): # функция показывающая задачи пользователю
    with get_connection() as conn:
@@ -199,6 +209,37 @@ def show_user_tasks(telegram_id): # функция показывающая за
                         st.write(db_date.strftime("%d.%b.%Y в %H:%M"))
             
 
+def generate_token(): # Функция, которая генерирует токен
+    return secrets.token_hex(32)
+
+def remember_user(telegram_id):# Добавляет пользоваеля в бд и генерирует токен
+    with get_connection() as conn:
+        cursor = conn.cursor()
+        token = generate_token()
+        try:
+            cursor.execute("INSERT INTO tokens (telegram_id, session_token) VALUES (?, ?)", (telegram_id, token))
+            conn.commit()
+            return token
+        except sqlite3.IntegrityError:
+            return None # Пользователь уже существует
+
+def delete_user(telegram_id):# Удаляет пользователя и токен из бд
+    with get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM tokens WHERE telegram_id = ?", (telegram_id,))
+        if cursor.rowcount == 0:
+            st.warning("Error")
+        conn.commit()
+       
+
+def get_user_by_token(token):# Ищет пользователя в бд по токену
+    if not token:
+        return None
+    with get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT telegram_id FROM tokens WHERE session_token = ?", (token,))
+        data = cursor.fetchone()
+        return data[0] if data else None
 
 # Заголовок сайта
 st.set_page_config(page_title="Трекер Продуктивности", layout="wide")
@@ -206,30 +247,24 @@ st.title("📊 Дашборд аналитики твоего обучения")
 st.subheader("Данные загружаются из твоего Telegram-бота")
 
 
-#  Подключает к бд и создает если её нет
-try:
-    get_connection()
-except:
-    create_database()
-    get_connection()
-
-DATABASE = 'baza.db'
-
 # Для работы с cookie files
 controller = CookieController()
 
-# Пытается достать имя пользователя из cookie files браузера
-saved_user = controller.get("logged_in_user")
+# Пытается достать токен пользователя из cookie files браузера
+saved_token = controller.get("session_token")
 
-# Если в cookie files есть пользователь, записывает его в session_state Streamlit
-if saved_user and "telegram_id" not in st.session_state:
-    st.session_state["telegram_id"] = saved_user
+# Если в cookie files есть токен пользователя, достает telegram_id и записывает его в session_state Streamlit
+if saved_token and "telegram_id" not in st.session_state:
+    telegram_id = get_user_by_token(saved_token)
+    if telegram_id:
+        st.session_state["telegram_id"] = telegram_id
+    else:
+        # Если токен невалидный (например, устарел или удален из бд, чистит cookie files
+        controller.remove("session_token")
 
 if "telegram_id" not in st.session_state:
     # Просит ввести ID пользователя
     telegram_id = st.text_input("Введите ваш Telegram ID для просмотра аналитики: ")
-    remember_me = st.checkbox("Запомнить меня", key="remember_me")
-
     if not telegram_id:
         st.info("Введите Telegram ID чтобы просмотреть аналитику")
         st.stop()
@@ -251,24 +286,34 @@ if "telegram_id" not in st.session_state:
                 st.stop()
 
             st.success("✅ ID верифицирован")
+            
+            # Кнопка "запомнить меня" появляется только если пользователь активен
+            remember_me = st.checkbox("Запомнить меня", key="remember_me")
+
             show_user_tasks(telegram_id)
             
         
         
             if remember_me:
                 try:
-                    controller.set("logged_in_user", telegram_id, max_age=60*60*24*30)
-
+                    token = remember_user(telegram_id)# Генерирует токен
+                    if token:
+                        st.session_state["telegram_id"] = telegram_id
+                        controller.set("session_token", token) # Запоминает пользователя
+                    time.sleep(0.5)        
+                    st.rerun()
                 except Exception:
                     st.warning("Не удалось сохранить cookie. Попробуйте разрешить куки в браузере.")
-            time.sleep(0.5)        
-            st.rerun()
+                    st.stop()
+
 
 
 else:
     show_user_tasks(st.session_state["telegram_id"])
     if st.button("Забыть меня"):
-        controller.remove("logged_in_user") # Удаляет cookie
+        controller.remove("session_token") # Удаляет cookie
+        delete_user(st.session_state["telegram_id"]) # Удаляет пользователя из бд
         del st.session_state["telegram_id"]    # Удаляет из сессии
         time.sleep(0.5)
         st.rerun()                          # Перезапускает страницу
+   

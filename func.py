@@ -49,3 +49,12 @@ def create_database(): # Создает базу данных и таблицы
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
   );
   ''')
+    
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS tokens (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    telegram_id INTEGER,
+    session_token TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  );
+  ''')
