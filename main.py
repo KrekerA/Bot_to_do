@@ -1,5 +1,5 @@
 import telebot
-from func import read_tasks, get_connection
+from func import check_table, get_connection
 import os
 from dotenv import load_dotenv
 import sqlite3
@@ -10,7 +10,7 @@ load_dotenv()
 TOKEN = os.getenv("TOKEN")
 bot = telebot.TeleBot(TOKEN)# Создаем экземпляр бота с помощью токена
 
-users = read_tasks()  # Читает задачи из бд
+check_table()  # Проверяет наличие таблиц в бд
 
 
 @bot.message_handler(commands=['start'])# Декоратор для обработки команды /start

@@ -14,16 +14,6 @@ def get_connection(): # Безопасное подключение
     finally:
         conn.close()
 
-
-def read_tasks(): # Читает задачи из базы данных
-  try:
-    with get_connection() as conn:
-      cursor = conn.cursor()
-      cursor.execute("SELECT * FROM users")
-      return cursor.fetchall()
-  except sqlite3.OperationalError:
-    create_database()
-
 def check_table():
    with get_connection() as conn:
     cursor = conn.cursor()
