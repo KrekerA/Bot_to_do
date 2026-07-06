@@ -72,7 +72,6 @@ def list_tasks(message): # Показывает список задач поль
       # Запрашивает текст, дату создания задачи и выполнена ли она из бд
       cursor.execute("SELECT text, done, created_at FROM tasks WHERE user_id = (SELECT id FROM users WHERE telegram_id = ?)", (telegram_id,))
       tasks = cursor.fetchall()
-      conn.close()
 
       # Если нет задач просит добавить задачи командой add
     if not tasks:
@@ -246,7 +245,7 @@ def undone_tasks(message): # Делает задачу не выполненно
 
 @bot.message_handler(commands=['stop'])
 def stop(message): # Останавливает бота для пользователя
-    telegram_id = str(message.chat.id)
+    telegram_id = check_users(message)
     with get_connection() as conn:
       cursor = conn.cursor()
 
