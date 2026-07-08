@@ -70,9 +70,8 @@ def list_tasks(message): # Показывает список задач поль
       return bot.send_message(message.chat.id, 'Чтобы начать нажмите /start')
     else:
       # Запрашивает текст, дату создания задачи и выполнена ли она из бд
-      cursor.execute("SELECT text, done, created_at FROM tasks WHERE user_id = (SELECT id FROM users WHERE telegram_id = ?)", (telegram_id,))
+      cursor.execute("SELECT text, done, created_at FROM tasks WHERE user_id = (SELECT id FROM users WHERE telegram_id = ?) ORDER BY created_at DESC", (telegram_id,))
       tasks = cursor.fetchall()
-
       # Если нет задач просит добавить задачи командой add
     if not tasks:
       return bot.send_message(message.chat.id, "Список задач пуст. Чтобы добавить задачу используй /add.")
