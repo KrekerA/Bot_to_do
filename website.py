@@ -3,7 +3,7 @@ import sqlite3
 import pandas as pd
 import streamlit as st
 import plotly.express as px
-from func import create_database, get_connection, check_table
+from func import get_connection, check_table
 from streamlit_cookies_controller import CookieController
 from datetime import datetime
 import secrets
@@ -119,7 +119,7 @@ def show_user_tasks(telegram_id): # функция показывающая за
                 st.write('✅' if done else '❌')
 
             with col3:
-                # Кнопки выполнить отменить выполнение
+                # Кнопки выполнить, отменить выполнение
                 if not done:
                     # Уникальный ключ по id задачи
                     if st.button("Выполнить", key=f"comp_{task_id}"):
@@ -222,8 +222,7 @@ def delete_user(telegram_id):# Удаляет пользователя и ток
     with get_connection() as conn:
         cursor = conn.cursor()
         cursor.execute("DELETE FROM tokens WHERE telegram_id = ?", (telegram_id,))
-        if cursor.rowcount == 0:
-            st.warning("Error")
+
         conn.commit()
        
 
@@ -254,8 +253,9 @@ if saved_token and "telegram_id" not in st.session_state:
     if telegram_id:
         st.session_state["telegram_id"] = telegram_id
     else:
-        # Если токен невалидный (например, устарел или удален из бд, чистит cookie files
+        # Если токен невалидный (например, устарел или удален из бд, чистит cookie files и удаляет пользователя из бд)
         controller.remove("session_token")
+        delete_user(telegram_id)
 
 if "telegram_id" not in st.session_state:
     # Просит ввести ID пользователя
