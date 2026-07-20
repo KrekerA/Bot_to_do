@@ -92,6 +92,12 @@ After starting, the bot will run and accept commands.
 
 ![alt text](website.png)
 
+### Graph
+
+Only completed tasks are displayed in the graph.
+
+![alt text](graph.png)
+
 ## Website buttons
 
 You can also interact with tasks on the website after adding at least one of them via the bot.
