@@ -6,26 +6,27 @@ Simple Telegram-bot and website for managing a personal task list. Tasks for use
 
 ## Project structure
 
-
-               _________user___________
-               |                      |
-               |                      |
-               |                      |
-            website                  bot
-               |                      |
-               |                      |
-               |______________________|
-                           |
-                           |
-            ____________baza.db___________
-            |                            |
-            |      users      tokens     |
-            |        |                   |
-            |      tasks                 |
-            |____________________________|
-
-  
-
+        Bot_to_do/
+        |
+        |___app/
+        |    |
+        |    |____func.py
+        |    |
+        |    |____main.py
+        |    |
+        |    |____website.py
+        |
+        |____.gitignore
+        |
+        |____baza.bd
+        |
+        |____graph.png
+        |
+        |____README.md
+        |
+        |____tasks.png
+        |
+        |____website.png
                            
 ## Features
 
@@ -56,8 +57,8 @@ TOKEN=your_bot_token
 ## Usage
 
 ```bash
-python main.py
-python -m streamlit run website.py
+python app/main.py
+python -m streamlit run app/website.py
 ```
 
 After starting, the bot will run and accept commands.
